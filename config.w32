@@ -1,0 +1,6 @@
+// $Id$
+// vim:ft=javascript
+
+if (PHP_MAKUO != "no") {
+	EXTENSION("makuo", "makuo.c");
+}

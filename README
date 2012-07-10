@@ -1,0 +1,300 @@
+Makuosan PHP Extension は、Makuosanデーモンを操作するコマンドラインツールmsyncを置き換えるものです。Makuosanはマルチキャストを利用して複数のサーバへ同時にファイルを転送するソフトウェアです。rsyncと違い、転送先の台数が増加しても転送時間は増加しないという利点があります。下の図はMakuosanを利用してHost AからHost B, Host C, Host Dに向けてファイルを送信するときの模式図です。msyncからHost Aで動作するMakuosanデーモンに向けてsend commandを送信すると、Host B, Host C, Host DのMakuosanデーモンに向けてファイルが転送されます。
+
+  ---------
+  | msync |
+  ---------                     ---------------------
+      |                    +--->| Makuosan (Host B) |
+      | send command       |    ---------------------
+      v                    |
+  ---------------------    |    ---------------------
+  | Makuosan (Host A) |----+--->| Makuosan (Host C) |
+  ---------------------    |    ---------------------
+                           |
+                           |    ---------------------
+                           +--->| Makuosan (Host D) |
+                                ---------------------
+
+これまでMakuosanデーモンを操作するためにはmsyncを使用する必要がありました。Makuosan PHP Extensionを使用すると、下の図のようにPHPプログラムから直接Makuosanデーモンを操作出来るようになります。
+
+  -------------------------------------
+  | PHP Program (Makuo PHP Extension) |
+  -------------------------------------
+      |                         ---------------------
+      |                    +--->| Makuosan (Host B) |
+      | send command       |    ---------------------
+      v                    |
+  ---------------------    |    ---------------------
+  | Makuosan (Host A) |----+--->| Makuosan (Host C) |
+  ---------------------    |    ---------------------
+                           |
+                           |    ---------------------
+                           +--->| Makuosan (Host D) |
+                                ---------------------
+
+Makuosan PHP Extensionには、msyncを利用するのと比較して以下の利点があります。
+
+  ・ PHPで書かれたWebアプリケーションからMakuosanをよりシームレスに利用できる
+  ・ Makuosanデーモンが返す情報にPHPプログラムから簡単にアクセスできる
+  ・ Makuosanデーモンをより細かく制御できる
+
+
+Makuosan,msyncに関する詳しい情報は以下のベージを参照して下さい。
+http://lab.klab.org/wiki/Makuosan
+
+以下ではMakuosanクラスについて説明します。
+
+________________________________________________________________________________
+
+void Makuosan::__construct(array options)
+  - 説明
+    Makuoオブジェクトを作成する。
+
+  - パラメータ
+    - options
+      オプションを指定するキー=>値の配列。以下のキーを受け付ける。
+      - "rcv_timeout" => int
+        makuosanデーモンとの間でデータを送受信する各メソッドの実行時間の制限を指定する
+        (単位は秒)。指定がなければ30となる。
+
+  - 返り値
+    Makuoオブジェクトを返す。
+
+  - 例
+    $makuo = new Makuo(array('rcv_timeout' => 5));  // rcv_timeoutは5秒。
+    $makuo = new Makuo();  // 指定しなければrcv_timeoutは30秒となる。
+
+
+void Makuosan::__destruct()
+  - 説明
+    MakuoオブジェクトがGCに回収される際に呼ばれる。もし内部に閉じていない接続があれば、その
+    接続を閉じる。
+
+  - パラメータ
+    このメソッドにはパラメータは無い。
+
+  - 返り値
+    このメソッドには返り値は無い。
+
+
+bool Makuosan::connect_tcp([string host, int port, int timeout])
+  - 説明
+    TCPソケットでmakuosanデーモンと接続する。
+
+  - パラメータ
+    - host
+      接続先のホスト名を指定する。指定がなければ"127.0.0.1"となる。
+
+    - port
+      接続先のポート番号を指定する。指定がなければ5000となる。
+
+    - timeout
+      接続のタイムアウトを指定する(単位は秒)。指定がなければ1となる。
+
+  - 返り値
+    成功した場合はTRUEを、失敗した場合はFALSEを返す。
+
+  - 例
+    $makuo = new Makuo();
+    if (!$makuo->connect_tcp("127.0.0.1", 5000, 5)) {
+        // 失敗
+        echo "connection failed.\n";
+        echo "ErrorMessage: " . $makuo->error . "\n";
+    }
+
+
+bool Makuosan::connect_unix(string path [, int timeout])
+  - 説明
+    UNIXドメインソケットでmakuosanデーモンと接続する。
+
+  - パラメータ
+    - path
+      接続先のUNIXドメインソケットのパスを指定する。
+
+    - timeout
+      接続のタイムアウトを指定する(単位は秒)。指定がなければ1となる。
+
+  - 返り値
+    成功した場合はTRUEを、失敗した場合はFALSEを返す。
+
+  - 例
+    $makuo = new Makuo();
+    if (!$makuo->connect_unix("/home/kishimoto-k/makuosan.sock")) {
+        // 失敗
+        echo "connection failed.\n";
+        echo "ErrorMessage: " . $makuo->error . "\n";
+    }
+
+
+void Makuosan::close()
+  - 説明
+    makuosanデーモンとの接続を閉じる。
+
+  - パラメータ
+    このメソッドにはパラーメータは無い。
+
+  - 返り値
+    このメソッドには返り値は無い。
+
+  - 例
+    $makuo = new Makuo();
+    $makuo->connect_tcp("127.0.0.1", 5000, 5);
+    $makuo->close();
+
+
+bool Makuosan::send(string path [, array options])
+  - 説明
+    msync [-n] [-r] [-t host] [path] と同等の処理を行う。指定されたファイル、または全てのファイルを他のサーバに送信し同期する。
+
+  - パラメータ
+    - path
+      送信するファイルのパスを指定する。
+
+    - options
+      オプションを指定するキー=>値の配列。以下のキーを受け付ける。
+        - "recursive" => bool
+          -rオプションに相当する。trueが指定された場合、MAKUOSANデーモン起動時に指定したベースディレクトリ以下の全てのファイルを送信する。指定されなければfalseとなる。
+
+        - "dryrun" => bool
+          trueが指定された場合実際にファイルは送信しない。指定されなければfalseとなる。
+
+        - "target_host" => string
+          送信先のホストを指定する。指定された場合はそのホストに対してのみファイルを送信する。指定されなければ全てのホストにファイルを送信する。
+
+        - "delete" => bool
+          trueが指定された場合ローカルに存在しないファイルを他のサーバから削除する。falseが指定された場合はファイル送信のみ行われ、削除はされない。指定されなければfalseとなる。
+
+  - 返り値
+    成功した場合はTRUEを、失敗した場合はFALSEを返す。
+
+
+bool Makuosan::sync(string path [, array options])
+  - 説明
+    msync --sync [-n] [-r] [-t host] [path] と同等の処理を行う。sendとほぼ同じだが、ローカルに存在しないファイルのpathを指定した時の動作が異なる。sendではエラーになるが、syncでは他のサーバにあるファイルを消す事で同期をはかる。sendメソッドのoptions引数でarray("delete"=>true)を指定するよりも高速にファイルの削除を行う事ができる。
+
+  - パラメータ
+    Makuosan::sendメソッドと同じである。
+
+  - 返り値
+    成功した場合はTRUEを、失敗した場合はFALSEを返す。
+
+
+mixed Makuosan::status()
+  - 説明
+    msync --status と同等の動作を行う。接続しているmakuosanデーモンの情報を取得する。
+
+  - パラメータ
+    このメソッドにパラメータは無い。
+
+  - 返り値
+    成功した場合は結果をハッシュテーブルに入れて返す。失敗した場合はFALSEを返す。
+
+  - 例
+    $makuo = new Makuo();
+    $makuo->connect_tcp("127.0.0.1", 5000);
+    print_r($makuo->status());
+
+    出力結果
+    _________________________________________________________________
+    Array
+    (
+        [process] => 6415
+        [version] => 1.2.1
+        [basedir] => /Users/keisuke/klab/php-module/makuo-base/
+        [mfalloc] => 2
+        [command] => 0
+        [send op] => 0
+        [recv op] => 0
+    )
+    _________________________________________________________________
+
+
+mixed Makuosan::members()
+  - 説明
+    msync --members と同等の動作を行う。他のホストで動作しているMAKUOSANデーモンを列挙する。
+
+  - パラメータ
+    このメソッドにパラメータは無い。
+
+  - 返り値
+    成功した場合は結果を配列に入れて返す。失敗した場合はFALSEを返す。
+
+  - 例
+    $makuo = new Makuo();
+    $makuo->connect_tcp("127.0.0.1", 5000);
+    print_r($makuo->members());
+
+    出力結果
+    _________________________________________________________________
+    Array
+    (
+        [0] => 10.10.2.26
+        [1] => 10.10.2.27
+    )
+    _________________________________________________________________
+
+
+mixed Makuosan::check()
+  - 説明
+    msync --check -r と同様の動作を行う。ローカルにはあるが他のホストに無いファイルを列挙する。
+
+  - パラメータ
+    このメソッドにパラメータは無い。
+
+  - 返り値
+    成功した場合は結果を配列に入れて返す。失敗した場合はFALSEを返す。
+
+
+bool Makuosan::exclude_add(array paths)
+  - 説明
+    excludeリストにpathsの各要素を追加する。excludeリストで指定されているファイルはsendの際に無視される。
+
+  - パラメータ
+    - paths
+      文字列を要素とする配列。excludeリストに追加したいパスを各要素で指定する。
+
+  - 返り値
+    成功した場合はTRUEを、失敗した場合はFALSEを返す。
+
+
+bool Makuosan::exclude_del(string path)
+  - 説明
+    excludeリストからpathと一致する物を削除する。
+
+  - パラメータ
+    - path
+      excludeリストから削除したいパスを指定する。
+
+  - 返り値
+    成功した場合はTRUEを、失敗した場合はFALSEを返す。
+
+
+mixed Makuosan::exclude_list()
+  - 説明
+    excludeリストを取得する。
+
+  - 返り値
+    成功した場合は結果を配列に入れて返す。失敗した場合はFALSEを返す。
+
+
+bool Makuosan::exclude_clear()
+  - 説明
+    excludeリストを空にする。
+
+  - 返り値
+    成功した場合はTRUEを、失敗した場合はFALSEを返す。
+
+
+string Makuosan::error
+  - 説明
+    直近のエラー内容を文字列で返す。
+
+  - 例
+    $makuo = new Makuo();
+    if (!$makuo->connect_tcp("127.0.0.1", 5000) {
+      echo $makuo->error;
+    }
+
+    出力結果
+    _________________________________________________________________
+    Connection failed
+    _________________________________________________________________
