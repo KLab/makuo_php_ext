@@ -60,8 +60,8 @@ void Makuosan::__construct(array options)
     Makuoオブジェクトを返す。
 
   - 例
-    $makuo = new Makuo(array('rcv_timeout' => 5));  // rcv_timeoutは5秒。
-    $makuo = new Makuo();  // 指定しなければrcv_timeoutは30秒となる。
+    $makuo = new Makuosan(array('rcv_timeout' => 5));  // rcv_timeoutは5秒。
+    $makuo = new Makuosan();  // 指定しなければrcv_timeoutは30秒となる。
 
 
 void Makuosan::__destruct()
@@ -94,7 +94,7 @@ bool Makuosan::connect_tcp([string host, int port, int timeout])
     成功した場合はTRUEを、失敗した場合はFALSEを返す。
 
   - 例
-    $makuo = new Makuo();
+    $makuo = new Makuosan();
     if (!$makuo->connect_tcp("127.0.0.1", 5000, 5)) {
         // 失敗
         echo "connection failed.\n";
@@ -117,7 +117,7 @@ bool Makuosan::connect_unix(string path [, int timeout])
     成功した場合はTRUEを、失敗した場合はFALSEを返す。
 
   - 例
-    $makuo = new Makuo();
+    $makuo = new Makuosan();
     if (!$makuo->connect_unix("/home/kishimoto-k/makuosan.sock")) {
         // 失敗
         echo "connection failed.\n";
@@ -136,7 +136,7 @@ void Makuosan::close()
     このメソッドには返り値は無い。
 
   - 例
-    $makuo = new Makuo();
+    $makuo = new Makuosan();
     $makuo->connect_tcp("127.0.0.1", 5000, 5);
     $makuo->close();
 
@@ -189,7 +189,7 @@ mixed Makuosan::status()
     成功した場合は結果をハッシュテーブルに入れて返す。失敗した場合はFALSEを返す。
 
   - 例
-    $makuo = new Makuo();
+    $makuo = new Makuosan();
     $makuo->connect_tcp("127.0.0.1", 5000);
     print_r($makuo->status());
 
@@ -219,7 +219,7 @@ mixed Makuosan::members()
     成功した場合は結果を配列に入れて返す。失敗した場合はFALSEを返す。
 
   - 例
-    $makuo = new Makuo();
+    $makuo = new Makuosan();
     $makuo->connect_tcp("127.0.0.1", 5000);
     print_r($makuo->members());
 
@@ -289,7 +289,7 @@ string Makuosan::error
     直近のエラー内容を文字列で返す。
 
   - 例
-    $makuo = new Makuo();
+    $makuo = new Makuosan();
     if (!$makuo->connect_tcp("127.0.0.1", 5000) {
       echo $makuo->error;
     }
